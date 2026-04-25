@@ -57,18 +57,20 @@ const Projects: React.FC = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {displayProjects.map((p) => (
-              <div key={p.id} className="group relative overflow-hidden aspect-[4/5] bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl">
+            {displayProjects.map((p: any) => (
+              <div key={p.id} className="group relative overflow-hidden aspect-[4/5] bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl">
                 <img 
                   src={p.image_url} 
                   className="w-full h-full object-cover grayscale brightness-75 group-hover:scale-110 group-hover:grayscale-0 transition-all duration-700" 
-                  alt={p.title} 
+                  alt={p.title_de || p.title} 
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent flex flex-col justify-end p-8 translate-y-4 group-hover:translate-y-0 transition-transform">
                   <div className="text-primary text-[10px] font-black uppercase tracking-widest mb-2 px-2 py-0.5 bg-black w-fit rounded-sm">
-                    {t('category', p)}
+                    {language === 'de' ? (p.category_de || p.category) : (p.category_en || p.category || p.category_de)}
                   </div>
-                  <h3 className="text-2xl font-black text-white uppercase italic leading-tight">{t('title', p)}</h3>
+                  <h3 className="text-2xl font-black text-white uppercase italic leading-tight">
+                    {language === 'de' ? (p.title_de || p.title) : (p.title_en || p.title || p.title_de)}
+                  </h3>
                   <div className="mt-4 w-0 h-1 bg-primary group-hover:w-full transition-all duration-500" />
                 </div>
               </div>

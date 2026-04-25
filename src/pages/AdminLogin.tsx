@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { Lock, User, AlertCircle, Loader2, CheckCircle2 } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import PageTransition from '../components/PageTransition';
 
 const AdminLogin: React.FC = () => {
@@ -17,24 +17,70 @@ const AdminLogin: React.FC = () => {
 
   // Check for existing session and DB connection on mount
   useEffect(() => {
+    let isMounted = true;
     const init = async () => {
       try {
-        // Test connection by fetching public settings
-        const { error: dbError } = await supabase.from('settings').select('key').limit(1);
-        setDbStatus(dbError && !dbError.message.includes('relation "settings" does not exist') ? 'error' : 'connected');
+        console.log('AdminPortal: Initializing...');
+        
+        // Timeout for DB check to prevent infinite loading
+        const dbCheckPromise = supabase.from('projects').select('id').limit(1).maybeSingle();
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Database connection timed out')), 8000)
+        );
 
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
+        try {
+          const { error: dbError } = await Promise.race([dbCheckPromise, timeoutPromise]) as any;
+          if (isMounted) {
+            const configStatus = isSupabaseConfigured();
+            
+            // Check if connection is successful even if table is missing or empty
+            const isConnected = !dbError || 
+                              dbError.message?.includes('relation "projects" does not exist') || 
+                              dbError.code === 'PGRST116' ||
+                              dbError.code === '42P01'; // Undefined table
+            
+            setDbStatus(isConnected ? 'connected' : 'error');
+
+            if (!configStatus.configured && isMounted) {
+              setDbStatus('error');
+              if (configStatus.isStripeKey) {
+                setError('CRITICAL: The key provided looks like a Stripe key, not a Supabase key. Please use the "anon public" key from your Supabase Dashboard.');
+              } else if (!configStatus.isSupabaseKey && configStatus.hasKey) {
+                setError('Notice: The API key does not look like a standard Supabase JWT. Please double-check your credentials.');
+              }
+            }
+            
+            if (dbError && !isConnected) {
+              console.warn('DB Connection problem:', dbError.message);
+            }
+          }
+        } catch (dbErr: any) {
+          console.warn('DB check delayed or timed out:', dbErr);
+          if (isMounted) {
+            setDbStatus('error');
+          }
+        }
+
+        // Session check with timeout
+        const sessionPromise = supabase.auth.getSession();
+        const sessionTimeout = new Promise((_, reject) => setTimeout(() => reject(new Error('Auth timeout')), 5000));
+        
+        const { data: { session } } = await Promise.race([sessionPromise, sessionTimeout]) as any;
+        
+        if (session && isMounted) {
+          console.log('Valid session found, redirecting to dashboard...');
           navigate('/admin/dashboard', { replace: true });
+          return;
         }
       } catch (err) {
         console.error('Initialization failed:', err);
-        setDbStatus('error');
+        if (isMounted) setDbStatus('error');
       } finally {
-        setCheckingSession(false);
+        if (isMounted) setCheckingSession(false);
       }
     };
     init();
+    return () => { isMounted = false; };
   }, [navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -46,27 +92,44 @@ const AdminLogin: React.FC = () => {
     setSuccess(false);
 
     try {
-      // 1. Attempt login
-      const { data, error: loginError } = await supabase.auth.signInWithPassword({
+      if (!email.includes('@')) {
+        throw new Error('Please enter a valid email address.');
+      }
+
+      console.log('Attempting login for:', email);
+
+      // Attempt login with timeout
+      const loginPromise = supabase.auth.signInWithPassword({
         email: email.trim(),
         password,
       });
 
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Login request timed out. Please check your internet connection or Supabase settings.')), 15000)
+      );
+
+      const { data, error: loginError } = await Promise.race([loginPromise, timeoutPromise]) as any;
+
       if (loginError) {
         console.error('Supabase Auth Error:', loginError);
-        // Specific error handling based on Supabase error codes or messages
+        
         if (loginError.message.includes('Invalid login credentials')) {
-          throw new Error('Wrong email or password. Please try again.');
+          throw new Error('Verification failed: Incorrect email or security key.');
         }
         if (loginError.message.includes('Email not confirmed')) {
-          throw new Error('Your email is not verified yet. Please check your inbox or disable verification in Supabase Auth settings.');
+          throw new Error('Access denied: Email address not confirmed in Supabase.');
+        }
+        if (loginError.message.includes('rate limit')) {
+          throw new Error('Too many attempts. Please wait a few minutes before trying again.');
         }
         throw loginError;
       }
 
       if (!data.user) {
-        throw new Error('Login succeeded but no user data returned.');
+        throw new Error('Authentication failed: No user identity returned.');
       }
+
+      console.log('Login successful, user:', data.user.id);
 
       // 2. Success state
       setSuccess(true);
@@ -74,19 +137,40 @@ const AdminLogin: React.FC = () => {
       // 3. Small delay for UX feedback then redirect
       setTimeout(() => {
         navigate('/admin/dashboard');
-      }, 1500);
+      }, 1000);
 
     } catch (err: any) {
-      console.error('Login error:', err);
-      setError(err.message || 'An unexpected error occurred during login.');
+      console.error('Login processing error:', err);
+      setError(err.message || 'A secure connection could not be established.');
       setLoading(false);
     }
   };
 
   if (checkingSession) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-zinc-950">
-        <Loader2 className="animate-spin text-primary w-12 h-12" />
+      <div className="min-h-screen flex flex-col items-center justify-center bg-zinc-50 dark:bg-zinc-950 p-6">
+        <motion.div
+          animate={{ scale: [1, 1.1, 1], opacity: [0.5, 1, 0.5] }}
+          transition={{ repeat: Infinity, duration: 2 }}
+          className="w-20 h-20 bg-primary mb-8 flex items-center justify-center font-display font-black text-3xl border-4 border-black"
+        >
+          AM
+        </motion.div>
+        <div className="flex flex-col items-center gap-4 max-w-sm text-center">
+          <Loader2 className="animate-spin text-primary w-10 h-10" />
+          <div className="space-y-1">
+            <h2 className="text-sm font-black uppercase tracking-widest">Initializing Control Panel</h2>
+            <p className="text-xs text-zinc-500 font-mono">Establishing secure connection to Supabase...</p>
+          </div>
+          
+          {/* Fallback button if stuck */}
+          <button 
+            onClick={() => setCheckingSession(false)}
+            className="mt-8 text-[10px] uppercase tracking-widest font-bold text-zinc-400 hover:text-primary transition-colors underline underline-offset-4"
+          >
+            Force Load Interface
+          </button>
+        </div>
       </div>
     );
   }
@@ -211,6 +295,20 @@ const AdminLogin: React.FC = () => {
                  dbStatus === 'error' ? 'Database: Error' : 'Database: Checking...'}
               </span>
             </div>
+
+            {dbStatus === 'error' && (
+              <div className="w-full bg-zinc-50 dark:bg-black/50 p-4 border border-zinc-200 dark:border-zinc-800 rounded-sm">
+                <p className="text-[10px] font-black uppercase mb-2 text-zinc-400">Connection Guide</p>
+                <ul className="text-[9px] text-zinc-500 space-y-1 list-disc pl-4 font-medium uppercase tracking-wider">
+                  <li>Visit <a href="https://supabase.com/dashboard" target="_blank" className="text-primary hover:underline">Supabase Dashboard</a></li>
+                  <li>Go to <span className="text-white">Project Settings &gt; API</span></li>
+                  <li>Ensure URL matches <code className="text-white">https://[id].supabase.co</code></li>
+                  <li>Ensure the key used is <span className="text-white">anon public</span> (starts with <code className="text-white">eyJ...</code>)</li>
+                  <li>Verify Email Auth is enabled in <span className="text-white">Authentication &gt; Providers</span></li>
+                </ul>
+              </div>
+            )}
+
             <div className="text-[10px] uppercase tracking-widest text-zinc-400 font-bold">
               Ali-Mughal Security Cloud v1.2.0
             </div>

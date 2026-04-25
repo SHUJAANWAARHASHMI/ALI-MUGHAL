@@ -23,6 +23,7 @@ const AdminDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'general' | 'projects' | 'services' | 'seo'>('general');
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [projects, setProjects] = useState<any[]>([]);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [newProject, setNewProject] = useState({ title: '', category: '', image_url: '' });
   const navigate = useNavigate();
@@ -40,20 +41,43 @@ const AdminDashboard: React.FC = () => {
   useEffect(() => {
     const initDashboard = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        setSession(session);
-        fetchProjects();
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        if (currentSession) {
+          setSession(currentSession);
+          fetchProjects();
+        } else {
+          // Fallback if protected route somehow lets them through
+          navigate('/admin/login', { replace: true });
+        }
       } catch (err) {
         console.error('Initalization failed:', err);
       }
     };
     
     initDashboard();
-  }, []);
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      if (!session) navigate('/admin/login', { replace: true });
+    });
+
+    return () => subscription.unsubscribe();
+  }, [navigate]);
 
   const fetchProjects = async () => {
-    const { data } = await supabase.from('projects').select('*').order('created_at', { ascending: false });
-    if (data) setProjects(data);
+    try {
+      setFetchError(null);
+      const { data, error } = await supabase
+        .from('projects')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      if (data) setProjects(data);
+    } catch (err: any) {
+      console.error('Error fetching projects:', err);
+      setFetchError(err.message || 'Failed to fetch projects. Check RLS policies.');
+    }
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -212,6 +236,22 @@ const AdminDashboard: React.FC = () => {
             {/* Tab: Projects */}
             {activeTab === 'projects' && (
               <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                {fetchError && (
+                  <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 rounded-sm flex gap-4">
+                    <AlertTriangle className="shrink-0" />
+                    <div className="text-sm">
+                      <p className="font-bold">Database Access Error</p>
+                      <p>{fetchError}</p>
+                      <button 
+                        onClick={fetchProjects}
+                        className="mt-2 text-xs font-black uppercase tracking-widest underline underline-offset-4"
+                      >
+                        Retry Connection
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-8 rounded-2xl">
                   <h3 className="font-bold uppercase tracking-widest mb-6 italic">Add New Project</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
