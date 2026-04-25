@@ -29,12 +29,27 @@ const Navbar: React.FC = () => {
 
   // Admin trigger
   const [logoClicks, setLogoClicks] = useState(0);
-  const handleLogoClick = (e: React.MouseEvent) => {
-    setLogoClicks(prev => prev + 1);
-    if (logoClicks >= 4) {
+  const [clickTimeout, setClickTimeout] = useState<NodeJS.Timeout | null>(null);
+
+  const handleLogoClick = () => {
+    // Clear previous timeout
+    if (clickTimeout) clearTimeout(clickTimeout);
+
+    const newClicks = logoClicks + 1;
+    setLogoClicks(newClicks);
+
+    // If 5 clicks reached
+    if (newClicks >= 5) {
       setLogoClicks(0);
       window.location.href = '/admin/login';
+      return;
     }
+
+    // Reset clicks after 2 seconds of inactivity
+    const timeout = setTimeout(() => {
+      setLogoClicks(0);
+    }, 2000);
+    setClickTimeout(timeout);
   };
 
   return (
@@ -42,7 +57,7 @@ const Navbar: React.FC = () => {
       className={cn(
         'fixed top-0 left-0 right-0 z-50 transition-all duration-300 border-b flex items-center',
         scrolled
-          ? 'bg-white/80 dark:bg-neutral-950/80 backdrop-blur-md border-neutral-200 dark:border-neutral-800 h-20'
+          ? 'bg-white/80 dark:bg-zinc-950/80 backdrop-blur-md border-zinc-200 dark:border-zinc-800 h-20'
           : 'bg-transparent border-transparent h-24'
       )}
     >
@@ -68,15 +83,15 @@ const Navbar: React.FC = () => {
                 key={link.path}
                 to={link.path}
                 className={cn(
-                  'font-medium text-sm transition-colors hover:text-primary',
-                  location.pathname === link.path ? 'text-primary' : 'text-neutral-500 dark:text-neutral-400'
+                  'font-medium text-sm transition-colors hover:text-primary focus:outline-none',
+                  location.pathname === link.path ? 'text-primary' : 'text-zinc-500 dark:text-zinc-400'
                 )}
               >
                 {link.name}
               </Link>
             ))}
           </div>
-          <div className="h-6 w-px bg-neutral-200 dark:bg-neutral-800" />
+          <div className="h-6 w-px bg-zinc-200 dark:bg-zinc-800" />
           <div className="flex items-center gap-4">
             <LanguageSwitcher />
             <ThemeToggle />

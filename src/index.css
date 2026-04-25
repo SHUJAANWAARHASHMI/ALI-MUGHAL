@@ -11,11 +11,18 @@
   
   --radius-xl: 0.75rem;
   --radius-2xl: 1rem;
+
+  --shadow-industrial: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-industrial-lg: 12px 12px 0px 0px var(--color-primary);
 }
 
 @layer base {
+  * {
+    @apply transition-colors duration-300;
+  }
+
   body {
-    @apply bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 antialiased selection:bg-primary selection:text-black;
+    @apply bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 antialiased selection:bg-primary selection:text-black;
   }
 }
 

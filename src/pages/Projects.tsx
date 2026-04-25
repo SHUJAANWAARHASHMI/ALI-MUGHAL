@@ -66,9 +66,9 @@ const Projects: React.FC = () => {
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent flex flex-col justify-end p-8 translate-y-4 group-hover:translate-y-0 transition-transform">
                   <div className="text-primary text-[10px] font-black uppercase tracking-widest mb-2 px-2 py-0.5 bg-black w-fit rounded-sm">
-                    {p.category}
+                    {t('category', p)}
                   </div>
-                  <h3 className="text-2xl font-black text-white uppercase italic leading-tight">{p.title}</h3>
+                  <h3 className="text-2xl font-black text-white uppercase italic leading-tight">{t('title', p)}</h3>
                   <div className="mt-4 w-0 h-1 bg-primary group-hover:w-full transition-all duration-500" />
                 </div>
               </div>

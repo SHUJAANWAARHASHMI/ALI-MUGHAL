@@ -38,12 +38,22 @@ const AdminDashboard: React.FC = () => {
   });
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) navigate('/admin/login');
-      setSession(session);
-    });
-
-    fetchProjects();
+    const initDashboard = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          navigate('/admin/login', { replace: true });
+          return;
+        }
+        setSession(session);
+        fetchProjects();
+      } catch (err) {
+        console.error('Initalization failed:', err);
+        navigate('/admin/login');
+      }
+    };
+    
+    initDashboard();
   }, [navigate]);
 
   const fetchProjects = async () => {
@@ -58,10 +68,10 @@ const AdminDashboard: React.FC = () => {
     const file = e.target.files[0];
     const fileExt = file.name.split('.').pop();
     const fileName = `${Math.random()}.${fileExt}`;
-    const filePath = `project-images/${fileName}`;
+    const filePath = `${fileName}`; // Direct in bucket root
 
     try {
-      const { error: uploadError, data } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from('projects')
         .upload(filePath, file);
 
@@ -73,8 +83,8 @@ const AdminDashboard: React.FC = () => {
 
       setNewProject({ ...newProject, image_url: publicUrl });
     } catch (error) {
-      console.error('Error uploading image:', error);
-      alert('Upload failed. Did you create the "projects" bucket in Supabase Storage and make it public?');
+      console.error('Error uploading:', error);
+      alert('Upload failed. Ensure a "projects" bucket exists and is public in Supabase Storage.');
     } finally {
       setIsUploading(false);
     }
@@ -83,7 +93,16 @@ const AdminDashboard: React.FC = () => {
   const handleAddProject = async () => {
     if (!newProject.title || !newProject.image_url) return;
     
-    const { error } = await supabase.from('projects').insert([newProject]);
+    const projectToInsert = {
+      title_de: newProject.title,
+      title_en: newProject.title, // Default same for now
+      category_de: newProject.category || 'Abbruch',
+      category_en: newProject.category || 'Demolition',
+      image_url: newProject.image_url,
+      status: 'completed'
+    };
+
+    const { error } = await supabase.from('projects').insert([projectToInsert]);
     if (!error) {
       setNewProject({ title: '', category: '', image_url: '' });
       fetchProjects();

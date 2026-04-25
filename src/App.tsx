@@ -25,7 +25,7 @@ export default function App() {
     <ThemeProvider>
       <LanguageProvider>
         <Router>
-          <div className="min-h-screen bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 transition-colors duration-300 flex flex-col">
+          <div className="min-h-screen bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 flex flex-col">
             <Navbar />
             <main className="flex-1">
               <Routes>
