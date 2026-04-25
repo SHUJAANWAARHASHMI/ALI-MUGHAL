@@ -20,8 +20,11 @@ import { cn } from '../lib/utils';
 
 const AdminDashboard: React.FC = () => {
   const [session, setSession] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'general' | 'services' | 'seo'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'projects' | 'services' | 'seo'>('general');
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const [projects, setProjects] = useState<any[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [newProject, setNewProject] = useState({ title: '', category: '', image_url: '' });
   const navigate = useNavigate();
 
   // Mock data for demo - in production this comes from Supabase
@@ -39,7 +42,59 @@ const AdminDashboard: React.FC = () => {
       if (!session) navigate('/admin/login');
       setSession(session);
     });
+
+    fetchProjects();
   }, [navigate]);
+
+  const fetchProjects = async () => {
+    const { data } = await supabase.from('projects').select('*').order('created_at', { ascending: false });
+    if (data) setProjects(data);
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    
+    setIsUploading(true);
+    const file = e.target.files[0];
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Math.random()}.${fileExt}`;
+    const filePath = `project-images/${fileName}`;
+
+    try {
+      const { error: uploadError, data } = await supabase.storage
+        .from('projects')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('projects')
+        .getPublicUrl(filePath);
+
+      setNewProject({ ...newProject, image_url: publicUrl });
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      alert('Upload failed. Did you create the "projects" bucket in Supabase Storage and make it public?');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleAddProject = async () => {
+    if (!newProject.title || !newProject.image_url) return;
+    
+    const { error } = await supabase.from('projects').insert([newProject]);
+    if (!error) {
+      setNewProject({ title: '', category: '', image_url: '' });
+      fetchProjects();
+    }
+  };
+
+  const handleDeleteProject = async (id: string) => {
+    if (!window.confirm('Are you sure?')) return;
+    const { error } = await supabase.from('projects').delete().eq('id', id);
+    if (!error) fetchProjects();
+  };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -67,6 +122,7 @@ const AdminDashboard: React.FC = () => {
           <nav className="flex-1 p-4 space-y-2">
             {[
               { id: 'general', icon: <Settings size={18} />, label: 'General Settings' },
+              { id: 'projects', icon: <ImageIcon size={18} />, label: 'Project Portfolio' },
               { id: 'services', icon: <Layers size={18} />, label: 'Services Content' },
               { id: 'seo', icon: <Globe size={18} />, label: 'SEO & Localization' },
             ].map(tab => (
@@ -103,6 +159,7 @@ const AdminDashboard: React.FC = () => {
               <div>
                 <h1 className="text-4xl font-display font-black uppercase tracking-tighter">
                   {activeTab === 'general' && 'General Configuration'}
+                  {activeTab === 'projects' && 'Project Portfolio'}
                   {activeTab === 'services' && 'Content Management'}
                   {activeTab === 'seo' && 'Search & Languages'}
                 </h1>
@@ -132,7 +189,99 @@ const AdminDashboard: React.FC = () => {
               </div>
             )}
 
-            {/* Tab: General */}
+            {/* Tab: Projects */}
+            {activeTab === 'projects' && (
+              <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 p-8 rounded-2xl">
+                  <h3 className="font-bold uppercase tracking-widest mb-6 italic">Add New Project</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold uppercase tracking-widest opacity-60">Project Title</label>
+                      <input 
+                        type="text" 
+                        value={newProject.title}
+                        onChange={(e) => setNewProject({...newProject, title: e.target.value})}
+                        className="w-full bg-neutral-50 dark:bg-black border border-neutral-200 dark:border-neutral-800 p-4 rounded-xl outline-none focus:border-primary" 
+                        placeholder="e.g. Industrial Demolition Berlin"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold uppercase tracking-widest opacity-60">Category</label>
+                      <input 
+                        type="text" 
+                        value={newProject.category}
+                        onChange={(e) => setNewProject({...newProject, category: e.target.value})}
+                        className="w-full bg-neutral-50 dark:bg-black border border-neutral-200 dark:border-neutral-800 p-4 rounded-xl outline-none focus:border-primary" 
+                        placeholder="e.g. Demolition"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="mb-6">
+                    <label className="text-xs font-bold uppercase tracking-widest opacity-60 block mb-2">Image</label>
+                    <div className="relative border-2 border-dashed border-neutral-200 dark:border-neutral-800 rounded-2xl p-8 text-center hover:border-primary transition-colors bg-neutral-50 dark:bg-black group">
+                      {newProject.image_url ? (
+                        <div className="relative w-full aspect-video rounded-xl overflow-hidden">
+                          <img src={newProject.image_url} alt="Preview" className="w-full h-full object-cover" />
+                          <button 
+                            onClick={() => setNewProject({...newProject, image_url: ''})}
+                            className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full hover:scale-110 transition-transform"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <input 
+                            type="file" 
+                            accept="image/*" 
+                            onChange={handleFileUpload}
+                            className="absolute inset-0 opacity-0 cursor-pointer"
+                          />
+                          <div className="flex flex-col items-center">
+                            <Plus className="text-neutral-400 group-hover:text-primary transition-colors mb-2" size={32} />
+                            <p className="text-sm font-bold uppercase tracking-widest mb-1">
+                              {isUploading ? 'Uploading...' : 'Upload Image'}
+                            </p>
+                            <p className="text-xs text-neutral-500">Max size 5MB (Requires projects bucket)</p>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  <button 
+                    onClick={handleAddProject}
+                    disabled={!newProject.title || !newProject.image_url}
+                    className="w-full bg-primary text-black font-black uppercase tracking-widest py-4 rounded-xl hover:bg-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Save Project to Portfolio
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  <h3 className="font-bold uppercase tracking-widest italic">Current Portfolio ({projects.length})</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {projects.map((project) => (
+                      <div key={project.id} className="flex items-center gap-4 p-4 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl group hover:border-primary/50 transition-colors">
+                        <img src={project.image_url} className="w-16 h-16 rounded-lg object-cover bg-neutral-100" alt="" />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-bold truncate">{project.title}</p>
+                          <p className="text-[10px] uppercase tracking-widest text-neutral-500">{project.category}</p>
+                        </div>
+                        <button 
+                          onClick={() => handleDeleteProject(project.id)}
+                          className="p-2 text-neutral-400 hover:text-red-500 transition-colors"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {activeTab === 'general' && (
               <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
