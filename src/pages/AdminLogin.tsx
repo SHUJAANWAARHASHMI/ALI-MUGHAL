@@ -21,14 +21,7 @@ const AdminLogin: React.FC = () => {
       try {
         // Test connection by fetching public settings
         const { error: dbError } = await supabase.from('settings').select('key').limit(1);
-        if (dbError && dbError.message.includes('relation "settings" does not exist')) {
-          // This actually means connected but table missing
-          setDbStatus('connected');
-        } else if (dbError) {
-          setDbStatus('error');
-        } else {
-          setDbStatus('connected');
-        }
+        setDbStatus(dbError && !dbError.message.includes('relation "settings" does not exist') ? 'error' : 'connected');
 
         const { data: { session } } = await supabase.auth.getSession();
         if (session) {

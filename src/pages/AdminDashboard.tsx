@@ -41,20 +41,15 @@ const AdminDashboard: React.FC = () => {
     const initDashboard = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        if (!session) {
-          navigate('/admin/login', { replace: true });
-          return;
-        }
         setSession(session);
         fetchProjects();
       } catch (err) {
         console.error('Initalization failed:', err);
-        navigate('/admin/login');
       }
     };
     
     initDashboard();
-  }, [navigate]);
+  }, []);
 
   const fetchProjects = async () => {
     const { data } = await supabase.from('projects').select('*').order('created_at', { ascending: false });
@@ -128,7 +123,13 @@ const AdminDashboard: React.FC = () => {
     }, 1000);
   };
 
-  if (!session) return null;
+  if (!session) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-zinc-950">
+        <Loader2 className="animate-spin text-primary w-12 h-12" />
+      </div>
+    );
+  }
 
   return (
     <PageTransition>

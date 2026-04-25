@@ -16,6 +16,9 @@
   --shadow-industrial-lg: 12px 12px 0px 0px var(--color-primary);
 }
 
+/* Explicit class-based dark mode for Tailwind v4 */
+@variant dark (&:where(.dark, .dark *));
+
 @layer base {
   * {
     @apply transition-colors duration-300;

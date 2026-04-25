@@ -18,6 +18,7 @@ import Privacy from './pages/Privacy';
 import Impressum from './pages/Impressum';
 import AdminLogin from './pages/AdminLogin';
 import AdminDashboard from './pages/AdminDashboard';
+import ProtectedRoute from './components/ProtectedRoute';
 import ScrollToTop from './components/ScrollToTop';
 
 export default function App() {
@@ -38,7 +39,14 @@ export default function App() {
                 <Route path="/privacy" element={<Privacy />} />
                 <Route path="/impressum" element={<Impressum />} />
                 <Route path="/admin/login" element={<AdminLogin />} />
-                <Route path="/admin/dashboard" element={<AdminDashboard />} />
+                <Route 
+                  path="/admin/dashboard" 
+                  element={
+                    <ProtectedRoute>
+                      <AdminDashboard />
+                    </ProtectedRoute>
+                  } 
+                />
               </Routes>
             </main>
             <Footer />
