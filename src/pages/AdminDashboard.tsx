@@ -43,37 +43,46 @@ const AdminDashboard: React.FC = () => {
     fetchData();
   }, []);
 
+  const [isSavingProject, setIsSavingProject] = useState(false);
+  const [isSavingService, setIsSavingService] = useState(false);
+
   const fetchData = async () => {
     setDbStatus('checking');
     try {
       setFetchError(null);
       
       // Connection & Table presence check
+      console.log('Starting fetch from website_settings...');
       const { data: testData, error: testErr } = await supabase.from('website_settings').select('key').limit(1);
       
       if (testErr) {
         console.error('Connection test error:', testErr);
         if (testErr.message?.includes('relation "website_settings" does not exist') || testErr.code === '42P01') {
           setDbStatus('missing_tables');
-          setFetchError('Database disconnected: Tables are missing. Please run the SQL setup script.');
+          setFetchError('TABLES MISSING. Please run the SQL setup script in Supabase.');
+        } else if (testErr.code === 'PGRST301' || testErr.message?.includes('JWT')) {
+          setDbStatus('error');
+          setFetchError('AUTH ERROR: Your Anon Key is likely invalid. Get it from Supabase -> Settings -> API.');
         } else {
           setDbStatus('error');
-          setFetchError(`Connection error: ${testErr.message}`);
+          setFetchError(`Connection error (${testErr.code || 'unknown'}): ${testErr.message}`);
         }
       } else {
+        console.log('Connection test successful.');
         setDbStatus('connected');
       }
 
       // Fetch Projects
+      console.log('Fetching projects...');
       const { data: pData, error: pErr } = await supabase.from('projects').select('*').order('created_at', { ascending: false });
       if (pErr) {
-        console.warn('Projects fetch warning:', pErr);
-        // Only use fallbacks if there's an error reaching the table
+        console.warn('Projects fetch failed:', pErr);
         setProjects([
           { id: '1', title_de: 'Abbrucharbeiten Rosenheim (Local Fallback)', category_de: 'Abbruch', image_url: 'https://images.unsplash.com/photo-1541888946425-d81bb19480c5?auto=format&fit=crop&w=400' },
           { id: '2', title_de: 'Kernbohrung Industriehalle (Local Fallback)', category_de: 'Kernbohrung', image_url: 'https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=400' }
         ]);
       } else {
+        console.log(`Fetched ${pData?.length || 0} projects`);
         setProjects(pData || []);
       }
 
@@ -90,14 +99,17 @@ const AdminDashboard: React.FC = () => {
       }
 
       // Fetch Settings
+      console.log('Fetching website settings...');
       const { data: stData, error: stErr } = await supabase.from('website_settings').select('*');
+      if (stErr) console.error('Settings fetch error:', stErr);
       if (stData && stData.length > 0) {
+        console.log(`Loaded ${stData.length} settings`);
         const map: Record<string, string> = {};
         stData.forEach((item: any) => map[item.key] = item.value);
         setSettingsMap(prev => ({ ...prev, ...map }));
       }
     } catch (err: any) {
-      console.error('Critical fetch error:', err);
+      console.error('Critical fetch process error:', err);
       setDbStatus('error');
       setFetchError(err.message || 'Unknown database error');
     }
@@ -107,26 +119,46 @@ const AdminDashboard: React.FC = () => {
     if (!e.target.files || e.target.files.length === 0) return;
     
     setIsUploading(true);
+    setFetchError(null);
     const file = e.target.files[0];
     const fileExt = file.name.split('.').pop();
-    const fileName = `${Math.random()}.${fileExt}`;
+    const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
     const filePath = `${fileName}`;
 
     try {
-      const { error: uploadError } = await supabase.storage
+      console.log('Bucket check: Attempting to list files in "projects"...');
+      const { data: bucketCheck, error: bucketError } = await supabase.storage.from('projects').list('', { limit: 1 });
+      
+      if (bucketError) {
+        console.error('Bucket access error:', bucketError);
+        throw new Error('STORAGE ERROR: Could not access "projects" bucket. Ensure it exists and is PUBLIC in your Supabase Dashboard.');
+      }
+
+      console.log('Bucket accessible. Starting upload...');
+      const { data: uploadData, error: uploadError } = await supabase.storage
         .from('projects')
-        .upload(filePath, file);
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error('Upload phase error:', uploadError);
+        throw uploadError;
+      }
 
+      console.log('Upload success, data:', uploadData);
+      
       const { data: { publicUrl } } = supabase.storage
         .from('projects')
         .getPublicUrl(filePath);
 
+      console.log('Resolved Public URL:', publicUrl);
       setNewProject({ ...newProject, image_url: publicUrl });
     } catch (error: any) {
-      console.error('Error uploading:', error);
-      alert(error.message || 'Upload failed. Ensure a "projects" bucket exists and is public in Supabase Storage.');
+      console.error('Storage Flow Error:', error);
+      setFetchError(`Image Upload Failed: ${error.message}`);
+      alert(`UPLOAD ERROR!\n\n${error.message}`);
     } finally {
       setIsUploading(false);
     }
@@ -138,43 +170,60 @@ const AdminDashboard: React.FC = () => {
       return;
     }
     
+    setIsSavingProject(true);
     console.log('Attempting to insert project:', newProject);
-    const { data, error } = await supabase.from('projects').insert([{
-      title_de: newProject.title_de,
-      title_en: newProject.title_de,
-      category_de: newProject.category_de || 'Abbruch',
-      category_en: newProject.category_de || 'Demolition',
-      image_url: newProject.image_url,
-    }]).select();
+    try {
+      const { data, error } = await supabase.from('projects').insert([{
+        title_de: newProject.title_de,
+        title_en: newProject.title_de,
+        category_de: newProject.category_de || 'Abbruch',
+        category_en: newProject.category_de || 'Demolition',
+        image_url: newProject.image_url,
+      }]).select();
 
-    if (error) {
-      console.error('Error adding project:', error);
-      alert(`Save failed: ${error.message}\n\nCode: ${error.code}\n\nMake sure the "projects" table exists and RLS allows inserts.`);
-    } else {
-      console.log('Project added successfully:', data);
-      setNewProject({ title_de: '', category_de: '', image_url: '' });
-      fetchData();
+      if (error) {
+        console.error('Error adding project:', error);
+        alert(`COMMIT FAILED!\n\nError: ${error.message}\n\nHint: Check RLS settings and verify the "projects" table exists.`);
+      } else {
+        console.log('Project added successfully:', data);
+        setNewProject({ title_de: '', category_de: '', image_url: '' });
+        await fetchData();
+      }
+    } catch (err: any) {
+      alert(`Unexpected Error: ${err.message}`);
+    } finally {
+      setIsSavingProject(false);
     }
   };
 
   const handleAddService = async () => {
-    if (!newService.title_de || !newService.description_de) return;
+    if (!newService.title_de || !newService.description_de) {
+      alert("Missing Title or Description");
+      return;
+    }
     
-    const { error } = await supabase.from('services').insert([{
-      title_de: newService.title_de,
-      title_en: newService.title_de,
-      description_de: newService.description_de,
-      description_en: newService.description_en || newService.description_de,
-      icon: newService.icon,
-      sort_order: servicesData.length
-    }]);
+    setIsSavingService(true);
+    try {
+      const { error } = await supabase.from('services').insert([{
+        title_de: newService.title_de,
+        title_en: newService.title_de,
+        description_de: newService.description_de,
+        description_en: newService.description_en || newService.description_de,
+        icon: newService.icon,
+        sort_order: servicesData.length
+      }]);
 
-    if (error) {
-      console.error('Error adding service:', error);
-      alert(`Save failed: ${error.message}\n\nMake sure the "services" table exists.`);
-    } else {
-      setNewService({ title_de: '', description_de: '', icon: 'Hammer' });
-      fetchData();
+      if (error) {
+        console.error('Error adding service:', error);
+        alert(`PROVISION FAILED!\n\nError: ${error.message}`);
+      } else {
+        setNewService({ title_de: '', description_de: '', icon: 'Hammer' });
+        await fetchData();
+      }
+    } catch (err: any) {
+      alert(`Unexpected Error: ${err.message}`);
+    } finally {
+      setIsSavingService(false);
     }
   };
 
@@ -195,34 +244,69 @@ const AdminDashboard: React.FC = () => {
     navigate('/');
   };
 
+  const [debugInfo, setDebugInfo] = useState<string | null>(null);
+
+  const runDiagnostics = async () => {
+    setDebugInfo('Running tests...');
+    const results: string[] = [];
+    
+    try {
+      // Test 1: Settings Table
+      const { data: s1, error: e1 } = await supabase.from('website_settings').select('key').limit(1);
+      results.push(`Settings Table: ${e1 ? 'FAILED (' + e1.message + ')' : 'OK'}`);
+      
+      // Test 2: Projects Table
+      const { data: s2, error: e2 } = await supabase.from('projects').select('id').limit(1);
+      results.push(`Projects Table: ${e2 ? 'FAILED (' + e2.message + ')' : 'OK'}`);
+      
+      // Test 3: Test Write
+      const testKey = `test_${Date.now()}`;
+      const { error: e3 } = await supabase.from('website_settings').upsert({ key: testKey, value: 'test' });
+      results.push(`Test Write (Upsert): ${e3 ? 'FAILED (' + e3.message + ')' : 'OK'}`);
+      
+      // Test 4: Cleanup
+      if (!e3) await supabase.from('website_settings').delete().eq('key', testKey);
+
+      setDebugInfo(results.join('\n'));
+    } catch (err: any) {
+      setDebugInfo(`Diagnostic error: ${err.message}`);
+    }
+  };
+
   const handleSaveSettings = async () => {
-    console.log('Starting settings save process...');
+    console.log('Initiating save for settings:', settingsMap);
     setSaveStatus('saving');
+    setFetchError(null);
+    
     try {
       const updates = Object.entries(settingsMap).map(([key, value]) => ({
         key,
-        value,
+        value: typeof value === 'string' ? value : JSON.stringify(value),
         updated_at: new Date().toISOString()
       }));
 
-      console.log('Payload for website_settings upsert:', updates);
-      const { data, error } = await supabase
+      console.log('Upserting updates:', updates);
+      
+      const { data, error, status } = await supabase
         .from('website_settings')
         .upsert(updates, { onConflict: 'key' })
         .select();
 
       if (error) {
-        console.error('Upsert detailed error:', error);
+        console.error('Supabase Upsert Error:', error);
+        console.error('Status Code:', status);
         throw error;
       }
       
-      console.log('Settings saved successfully. Rows returned:', data?.length);
+      console.log('Save Complete. Data:', data);
       setSaveStatus('saved');
-      setTimeout(() => setSaveStatus('idle'), 2000);
+      setTimeout(() => setSaveStatus('idle'), 3000);
     } catch (err: any) {
-      console.error('Error saving settings:', err);
+      console.error('Final Save Catch:', err);
       setSaveStatus('error');
-      alert(`Save failed: ${err.message || 'Unknown error'}\n\nPlease check the console for details.`);
+      setFetchError(`Save Error: ${err.message || 'Database connection lost'}`);
+      alert(`SAVE FAILED!\n\n${err.message || 'Unknown error'}\n\nCommon Causes:\n1. RLS is still enabled.\n2. Table "website_settings" is missing.\n3. Unique constraint on "key" is missing.`);
+      setTimeout(() => setSaveStatus('idle'), 5000);
     }
   };
 
@@ -271,9 +355,22 @@ const AdminDashboard: React.FC = () => {
           <div className="p-4 border-t border-zinc-100 dark:border-zinc-800">
             <div className="mb-4 px-4">
               <p className="text-[9px] uppercase tracking-widest text-zinc-500 font-bold mb-1">Project Endpoint</p>
-              <p className="text-[8px] font-mono break-all opacity-50 truncate" title={supabase.auth.getSession ? (supabase as any).supabaseUrl : 'Supabase Not Loaded'}>
+              <p className="text-[8px] font-mono break-all opacity-50 truncate" title={(supabase as any).supabaseUrl}>
                 {(supabase as any).supabaseUrl || 'Loading...'}
               </p>
+            </div>
+            <div className="px-4 mb-4">
+              <button 
+                onClick={runDiagnostics}
+                className="w-full py-2 bg-zinc-100 dark:bg-zinc-800 text-[10px] uppercase font-black tracking-widest rounded-sm hover:bg-primary transition-colors"
+              >
+                Run Connection Test
+              </button>
+              {debugInfo && (
+                <div className="mt-2 p-2 bg-black text-[9px] font-mono text-green-400 whitespace-pre-wrap border border-zinc-800">
+                  {debugInfo}
+                </div>
+              )}
             </div>
             <button 
               onClick={handleLogout}
@@ -393,10 +490,11 @@ const AdminDashboard: React.FC = () => {
 
                   <button 
                     onClick={handleAddProject}
-                    disabled={!newProject.title_de || !newProject.image_url}
-                    className="w-full bg-black dark:bg-white text-white dark:text-black font-black uppercase tracking-widest py-4 rounded-sm hover:bg-primary hover:text-black transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.99] shadow-[4px_4px_0px_var(--color-primary)]"
+                    disabled={!newProject.title_de || !newProject.image_url || isSavingProject}
+                    className="w-full bg-black dark:bg-white text-white dark:text-black font-black uppercase tracking-widest py-4 rounded-sm hover:bg-primary hover:text-black transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.99] shadow-[4px_4px_0px_var(--color-primary)] flex items-center justify-center gap-2"
                   >
-                    Commit Project
+                    {isSavingProject ? <Loader2 className="animate-spin text-primary" size={20} /> : null}
+                    {isSavingProject ? 'Processing...' : 'Commit Project'}
                   </button>
                 </div>
 
@@ -518,10 +616,11 @@ const AdminDashboard: React.FC = () => {
                     </div>
                     <button 
                       onClick={handleAddService}
-                      disabled={!newService.title_de || !newService.description_de}
-                      className="w-full bg-primary text-black font-black uppercase tracking-widest py-4 rounded-sm hover:bg-black hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-[4px_4px_0px_#000]"
+                      disabled={!newService.title_de || !newService.description_de || isSavingService}
+                      className="w-full bg-primary text-black font-black uppercase tracking-widest py-4 rounded-sm hover:bg-black hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-[4px_4px_0px_#000] flex items-center justify-center gap-2"
                     >
-                      Provision Service
+                      {isSavingService ? <Loader2 className="animate-spin text-white" size={20} /> : null}
+                      {isSavingService ? 'Provisioning...' : 'Provision Service'}
                     </button>
                   </div>
                 </div>
