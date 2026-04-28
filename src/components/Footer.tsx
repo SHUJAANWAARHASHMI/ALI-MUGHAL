@@ -14,14 +14,14 @@ const Footer: React.FC = () => {
         <div className="flex flex-col gap-6">
           <Link to="/" className="flex items-center gap-2">
             <div className="w-10 h-10 bg-primary flex items-center justify-center font-display font-black text-black text-xl rounded-sm">
-              AM
+              FJ
             </div>
             <div className="font-display font-bold text-xl tracking-tighter">
-              ALI-MUGHAL
+              FJ BAUSERVICE
             </div>
           </Link>
           <p className="text-neutral-400 text-sm leading-relaxed max-w-xs">
-            {t('hero.sub')}
+            Raum für Neues schaffen. Ihr Partner für präzise Abbrucharbeiten und Kernbohrungen in Rosenheim.
           </p>
           <div className="flex items-center gap-4">
             <a href="#" className="w-10 h-10 rounded-full border border-neutral-800 flex items-center justify-center hover:bg-primary hover:border-primary hover:text-black transition-all">
@@ -61,7 +61,7 @@ const Footer: React.FC = () => {
               </div>
               <div>
                 <p className="text-[10px] text-neutral-500 uppercase tracking-widest mb-1 font-bold">Call Us</p>
-                <a href="tel:+491234567890" className="text-neutral-300 hover:text-white transition-colors font-bold">+49 123 4567890</a>
+                <a href="tel:+4915906142923" className="text-neutral-300 hover:text-white transition-colors font-bold">0159 06142923</a>
               </div>
             </li>
             <li className="flex gap-4">
@@ -70,7 +70,7 @@ const Footer: React.FC = () => {
               </div>
               <div>
                 <p className="text-[10px] text-neutral-500 uppercase tracking-widest mb-1 font-bold">Email Us</p>
-                <a href="mailto:info@ali-mughal.de" className="text-neutral-300 hover:text-white transition-colors font-bold">info@ali-mughal.de</a>
+                <a href="mailto:amjad.ali@fj-bauservice.com" className="text-neutral-300 hover:text-white transition-colors font-bold text-xs">amjad.ali@fj-bauservice.com</a>
               </div>
             </li>
           </ul>
@@ -89,11 +89,11 @@ const Footer: React.FC = () => {
 
       <div className="max-w-7xl mx-auto px-4 md:px-10 mt-20 pt-8 border-t border-neutral-900 flex flex-col md:flex-row items-center justify-between gap-4">
         <p className="text-neutral-600 text-[10px] uppercase tracking-widest font-bold">
-          © {currentYear} Ali-Mughal Abbruch & Demontage.
+          © {currentYear} FJ Bauservice Rosenheim.
         </p>
         <div className="flex gap-6 text-neutral-600 text-[10px] uppercase tracking-widest font-bold">
-          <span>Berlin, DE</span>
-          <span className="text-primary">WhatsApp Support</span>
+          <span>Rosenheim, DE</span>
+          <span className="text-primary hover:underline cursor-pointer">WhatsApp: 0159 06142923</span>
         </div>
       </div>
     </footer>

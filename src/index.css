@@ -6,8 +6,8 @@
   --font-display: "Outfit", sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 
-  --color-primary: #FFD700; /* Industrial Yellow */
-  --color-primary-hover: #E6C200;
+  --color-primary: #FF6B00; /* Industrial Orange */
+  --color-primary-hover: #E65A00;
   
   --radius-xl: 0.75rem;
   --radius-2xl: 1rem;

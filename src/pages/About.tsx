@@ -13,10 +13,10 @@ const About: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-16">
           <div className="prose dark:prose-invert max-w-none">
             <p className="text-xl text-zinc-600 dark:text-zinc-400 leading-relaxed mb-8">
-              Ali-Mughal ist ein familiengeführtes Unternehmen mit Sitz in Deutschland, das sich auf professionelle Abbrucharbeiten, Entkernung und Demontage spezialisiert hat.
+              FJ Bauservice ist ein Fachunternehmen mit Sitz in Rosenheim, das sich auf professionelle Abbrucharbeiten, Entkernung und Kernbohrungen spezialisiert hat.
             </p>
             <p className="text-zinc-500 dark:text-zinc-500 leading-relaxed">
-              Seit unserer Gründung haben wir uns durch Zuverlässigkeit, Präzision und höchste Sicherheitsstandards einen Namen in der Branche gemacht. Unser Team besteht aus erfahrenen Fachkräften, die jedes Projekt – egal ob klein oder groß – mit größter Sorgfalt planen und ausführen.
+              Unter dem Motto "Raum für Neues schaffen" setzen wir Projekte mit höchster Präzision und Zuverlässigkeit um. Unser Team in Rosenheim steht für Qualität, Termintreue und saubere Ausführung bei jedem Auftrag.
             </p>
           </div>
           <div className="aspect-video bg-zinc-100 dark:bg-zinc-900 rounded-sm overflow-hidden border border-zinc-200 dark:border-zinc-800">

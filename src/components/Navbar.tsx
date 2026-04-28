@@ -71,7 +71,7 @@ const Navbar: React.FC = () => {
         >
           <div className="relative">
             <div className="w-10 h-10 bg-primary rounded-sm flex items-center justify-center font-display font-black text-black text-xl transition-transform group-hover:rotate-6">
-              AM
+              FJ
             </div>
             {logoClicks > 0 && (
               <div className="absolute -top-2 -right-2 bg-black text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-black animate-bounce">
@@ -80,7 +80,7 @@ const Navbar: React.FC = () => {
             )}
           </div>
           <div className="font-display font-bold text-2xl tracking-tighter hidden sm:block">
-            ALI-MUGHAL
+            FJ BAUSERVICE
           </div>
         </div>
 

@@ -1,12 +1,62 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { ArrowRight, Drill, Hammer, Building2, ShieldCheck, Zap, HardHat, ChevronRight } from 'lucide-react';
+import { ArrowRight, Drill, Hammer, Building2, ShieldCheck, Zap, HardHat, ChevronRight, Loader2 } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
+import { supabase } from '../lib/supabase';
 import PageTransition from '../components/PageTransition';
 
 const Home: React.FC = () => {
   const { t, language } = useLanguage();
+  const [settings, setSettings] = useState<Record<string, string>>({});
+  const [services, setServices] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // Add a timeout to any supabase call to prevent infinite loading
+        const settingsPromise = supabase.from('website_settings').select('*');
+        const servicesPromise = supabase.from('services').select('*').order('sort_order', { ascending: true }).limit(4);
+        
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Fetch timed out')), 2000)
+        );
+
+        const [stResult, svResult] = await Promise.allSettled([
+          Promise.race([settingsPromise, timeoutPromise]),
+          Promise.race([servicesPromise, timeoutPromise])
+        ]);
+
+        if (stResult.status === 'fulfilled' && (stResult.value as any).data) {
+          const map: Record<string, string> = {};
+          (stResult.value as any).data.forEach((item: any) => map[item.key] = item.value);
+          setSettings(map);
+        }
+
+        if (svResult.status === 'fulfilled' && (svResult.value as any).data && (svResult.value as any).data.length > 0) {
+          setServices((svResult.value as any).data);
+        } else {
+          // Fallback services
+          setServices([
+            { id: '1', title_de: 'Abbrucharbeiten', title_en: 'Demolition', description_de: 'Fachgerechter Abbruch von Gebäuden.', description_en: 'Professional demolition of buildings.' },
+            { id: '2', title_de: 'Entkernungsarbeiten', title_en: 'Interior Gutting', description_de: 'Vorbereitung von Renovierungen.', description_en: 'Preparation of renovations.' },
+            { id: '3', title_de: 'Kernbohrungen', title_en: 'Core Drilling', description_de: 'Präzisionsbohrungen in Beton.', description_en: 'Precision drilling in concrete.' },
+            { id: '4', title_de: 'Betonschneiden', title_en: 'Concrete Cutting', description_de: 'Exakte Schnitte in Baustoffen.', description_en: 'Exact cuts in building materials.' }
+          ]);
+        }
+      } catch (err) {
+        console.error('Error fetching home data:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
+  const slogan = language === 'de' 
+    ? (settings.slogan_de || 'Raum für Neues schaffen') 
+    : (settings.slogan_en || 'Creating space for the new');
 
   return (
     <PageTransition>
@@ -25,23 +75,27 @@ const Home: React.FC = () => {
               </div>
               <div className="relative z-10">
                 <span className="bg-primary text-black text-[10px] font-black px-2 py-1 uppercase tracking-widest mb-6 inline-block rounded-sm">
-                  {language === 'de' ? 'Expertise in Deutschland' : 'Expertise in Germany'}
+                  {language === 'de' ? (settings.experience_badge_de || 'Expertise in Deutschland') : (settings.experience_badge_en || 'Expertise in Germany')}
                 </span>
                 <h1 className="text-5xl md:text-8xl font-black leading-[0.9] tracking-tighter mb-8 uppercase">
-                  {language === 'de' ? (
-                    <>PRÄZISION IM <br /><span className="text-primary">ABBRUCH.</span></>
+                  {slogan.includes('ABBRUCH') || slogan.includes('DEMOLITION') ? (
+                    language === 'de' ? (
+                      <>PRÄZISION IM <br /><span className="text-primary">ABBRUCH.</span></>
+                    ) : (
+                      <>PRECISION IN <br /><span className="text-primary">DEMOLITION.</span></>
+                    )
                   ) : (
-                    <>PRECISION IN <br /><span className="text-primary">DEMOLITION.</span></>
+                    slogan
                   )}
                 </h1>
                 <p className="text-neutral-500 dark:text-neutral-400 max-w-md text-lg leading-relaxed mb-8">
-                  {t('hero.sub')}
+                  {settings[`hero_sub_${language}`] || t('hero.sub')}
                 </p>
                 <div className="flex flex-wrap gap-4">
-                  <button className="bg-primary text-black px-8 py-4 font-bold rounded-sm uppercase tracking-wider hover:bg-white transition-all active:scale-95 flex items-center gap-2 group">
+                  <Link to="/contact" className="bg-primary text-black px-8 py-4 font-bold rounded-sm uppercase tracking-wider hover:bg-white transition-all active:scale-95 flex items-center gap-2 group">
                     {t('cta.quote')}
                     <ArrowRight className="group-hover:translate-x-1 transition-transform" />
-                  </button>
+                  </Link>
                 </div>
               </div>
             </motion.div>
@@ -88,29 +142,38 @@ const Home: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {[
-                { id: '01', title_de: 'Totalabbruch', title_en: 'Total Demolition', desc: 'Komplette Beseitigung von Gebäuden und Industrieanlagen.' },
-                { id: '02', title_de: 'Entkernung', title_en: 'Interior Gutting', desc: 'Fachgerechter Rückbau bis auf die statischen Grundelemente.' },
-                { id: '03', title_de: 'Erdarbeiten', title_en: 'Earthworks', desc: 'Baugrubenaushub und Geländeregulierung für Ihr Fundament.' },
-                { id: '04', title_de: 'Sanierung', title_en: 'Sanitation', desc: 'Entfernung von Asbest und KMF nach TRGS 519/521.' },
-              ].map((item, i) => (
-                <motion.div
-                  key={i}
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  whileInView={{ opacity: 1, scale: 1 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: i * 0.1 }}
-                  className="bg-neutral-50 dark:bg-neutral-900/50 border border-neutral-200 dark:border-neutral-800 p-8 rounded-2xl hover:border-primary transition-colors group"
-                >
-                  <h3 className="font-bold text-xl mb-3 flex items-center gap-3 italic uppercase">
-                    <span className="text-primary">{item.id}</span> 
-                    {language === 'de' ? item.title_de : item.title_en}
-                  </h3>
-                  <p className="text-neutral-500 dark:text-neutral-400 text-sm leading-relaxed">
-                    {item.desc}
-                  </p>
-                </motion.div>
-              ))}
+              {loading ? (
+                Array(4).fill(0).map((_, i) => (
+                  <div key={i} className="bg-neutral-50 dark:bg-neutral-900/50 border border-neutral-200 dark:border-neutral-800 p-8 rounded-2xl animate-pulse">
+                    <div className="h-6 w-32 bg-neutral-200 dark:bg-neutral-800 rounded mb-4" />
+                    <div className="h-20 w-full bg-neutral-200 dark:bg-neutral-800 rounded" />
+                  </div>
+                ))
+              ) : services.length > 0 ? (
+                services.map((item, i) => (
+                  <motion.div
+                    key={item.id}
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    whileInView={{ opacity: 1, scale: 1 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: i * 0.1 }}
+                    className="bg-neutral-50 dark:bg-neutral-900/50 border border-neutral-200 dark:border-neutral-800 p-8 rounded-2xl hover:border-primary transition-colors group"
+                  >
+                    <h3 className="font-bold text-xl mb-3 flex items-center gap-3 italic uppercase">
+                      <span className="text-primary italic font-mono">{String(i + 1).padStart(2, '0')}</span> 
+                      {language === 'de' ? item.title_de : item.title_en}
+                    </h3>
+                    <p className="text-neutral-500 dark:text-neutral-400 text-sm leading-relaxed">
+                      {language === 'de' ? item.description_de : item.description_en}
+                    </p>
+                  </motion.div>
+                ))
+              ) : (
+                <div className="col-span-full py-12 text-center border-2 border-dashed border-zinc-200 dark:border-zinc-800 opacity-50">
+                   <p className="uppercase font-black tracking-widest text-sm">No services listed yet.</p>
+                   <Link to="/admin/login" className="text-primary hover:underline text-xs mt-2 inline-block">Add your first service in Control Panel</Link>
+                </div>
+              )}
             </div>
           </div>
         </section>
@@ -125,8 +188,8 @@ const Home: React.FC = () => {
                 </div>
                 <h2 className="text-4xl md:text-5xl font-display font-black tracking-tighter mb-12 uppercase leading-tight">
                   {language === 'de' 
-                    ? 'Warum Ali-Mughal? Weil Qualität keine Zufälle kennt.' 
-                    : 'Why Ali-Mughal? Because quality is not an accident.'}
+                    ? 'Warum FJ Bauservice? Weil Qualität keine Zufälle kennt.' 
+                    : 'Why FJ Bauservice? Because quality is not an accident.'}
                 </h2>
                 
                 <div className="space-y-10">

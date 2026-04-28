@@ -28,7 +28,7 @@ const Contact: React.FC = () => {
                 </div>
                 <div>
                   <h4 className="font-bold text-lg mb-1">{language === 'de' ? 'Rufen Sie uns an' : 'Call us'}</h4>
-                  <p className="text-zinc-500">+49 123 4567890</p>
+                  <p className="text-zinc-500">0159 06142923</p>
                 </div>
               </div>
               <div className="flex gap-6">
@@ -37,7 +37,7 @@ const Contact: React.FC = () => {
                 </div>
                 <div>
                   <h4 className="font-bold text-lg mb-1">Email</h4>
-                  <p className="text-zinc-500">info@ali-mughal.de</p>
+                  <p className="text-zinc-500">amjad.ali@fj-bauservice.com</p>
                 </div>
               </div>
               <div className="flex gap-6">
@@ -46,7 +46,7 @@ const Contact: React.FC = () => {
                 </div>
                 <div>
                   <h4 className="font-bold text-lg mb-1">{language === 'de' ? 'Adresse' : 'Address'}</h4>
-                  <p className="text-zinc-500">Musterstraße 123, 10117 Berlin, Deutschland</p>
+                  <p className="text-zinc-500">Bahnhofstraße 9, 83022 Rosenheim, Deutschland</p>
                 </div>
               </div>
             </div>

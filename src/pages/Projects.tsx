@@ -18,23 +18,34 @@ const Projects: React.FC = () => {
 
   useEffect(() => {
     async function fetchProjects() {
-      const { data, error } = await supabase
-        .from('projects')
-        .select('*')
-        .order('created_at', { ascending: false });
-      
-      if (!error && data) {
-        setProjects(data);
+      try {
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Fetch timed out')), 2000)
+        );
+        const fetchPromise = supabase
+          .from('projects')
+          .select('*')
+          .order('created_at', { ascending: false });
+        
+        const result = await Promise.race([fetchPromise, timeoutPromise]) as any;
+        
+        if (result && result.data && result.data.length > 0) {
+          setProjects(result.data);
+        }
+      } catch (err) {
+        console.error('Fetch projects error:', err);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
     fetchProjects();
   }, []);
 
   // Fallback data if DB is empty or disconnected
   const displayProjects = projects.length > 0 ? projects : [
-    { id: '1', title: 'Industriepark Berlin', category: 'Total Demolition', image_url: 'https://images.unsplash.com/photo-1541888946425-d81bb19480c5?q=80&w=600' },
-    { id: '2', title: 'Wohnanlage München', category: 'Interior Gutting', image_url: 'https://images.unsplash.com/photo-1590644365607-1c5a519a9a37?q=80&w=600' },
+    { id: '1', title_de: 'Abbruch Rosenheim', title_en: 'Demolition Rosenheim', category_de: 'Abbrucharbeiten', category_en: 'Demolition', image_url: 'https://images.unsplash.com/photo-1541888946425-d81bb19480c5?q=80&w=600' },
+    { id: '2', title_de: 'Kernbohrung Gewerbebau', title_en: 'Core Drilling Commercial', category_de: 'Kernbohrungen', category_en: 'Core Drilling', image_url: 'https://images.unsplash.com/photo-1503387762-592deb58ef4e?q=80&w=600' },
+    { id: '3', title_de: 'Entkernung Stadtvilla', title_en: 'Interior Gutting Villa', category_de: 'Entkernungsarbeiten', category_en: 'Interior Gutting', image_url: 'https://images.unsplash.com/photo-1581094794329-c8112a89af12?q=80&w=600' },
   ];
 
   return (

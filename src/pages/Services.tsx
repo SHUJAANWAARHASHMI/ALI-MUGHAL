@@ -1,18 +1,56 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import PageTransition from '../components/PageTransition';
 import { useLanguage } from '../context/LanguageContext';
-import { Hammer, Drill, Building2, HardHat, Zap, ShieldCheck } from 'lucide-react';
+import { Hammer, Drill, Building2, HardHat, Zap, ShieldCheck, Loader2 } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+
+const iconMap: Record<string, any> = {
+  Hammer: <Hammer size={40} />,
+  Drill: <Drill size={40} />,
+  Building2: <Building2 size={40} />,
+  HardHat: <HardHat size={40} />,
+  Zap: <Zap size={40} />,
+  ShieldCheck: <ShieldCheck size={40} />,
+};
 
 const Services: React.FC = () => {
   const { language } = useLanguage();
-  const services = [
-    { icon: <Hammer size={40} />, title_de: 'Komplettabbruch', title_en: 'Total Demolition', desc: 'Sprengungen und mechanischer Rückbau von Wohnhäusern und Geschäftsgebäuden.' },
-    { icon: <Drill size={40} />, title_de: 'Entkernung', title_en: 'Interior Gutting', desc: 'Entfernung aller nicht-tragenden Bauteile zur Vorbereitung von Sanierungen.' },
-    { icon: <Building2 size={40} />, title_de: 'Industrieabbruch', title_en: 'Industrial Demolition', desc: 'Rückbau von Hallen, Fabriken und Kraftwerksanlagen.' },
-    { icon: <HardHat size={40} />, title_de: 'Schadstoffsanierung', title_en: 'Hazardous Waste', desc: 'Fachgerechte Entsorgung von Asbest, KMF und anderen Gefahrenstoffen.' },
-    { icon: <Zap size={40} />, title_de: 'Demontage', title_en: 'Dismantling', desc: 'Demontage von haustechnischen Anlagen und Maschinen.' },
-    { icon: <ShieldCheck size={40} />, title_de: 'Erdbau', title_en: 'Earthworks', desc: 'Aushubarbeiten und Baugrundvorbereitung nach dem Abbruch.' },
+  const [services, setServices] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchServices() {
+      try {
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Fetch timed out')), 2000)
+        );
+        const fetchPromise = supabase
+          .from('services')
+          .select('*')
+          .order('sort_order', { ascending: true });
+        
+        const result = await Promise.race([fetchPromise, timeoutPromise]) as any;
+        
+        if (result && result.data && result.data.length > 0) {
+          setServices(result.data);
+        }
+      } catch (err) {
+        console.error('Fetch services error:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchServices();
+  }, []);
+
+  const defaultServices = [
+    { icon: 'Hammer', title_de: 'Abbrucharbeiten', title_en: 'Demolition Works', description_de: 'Fachgerechter Abbruch von Gebäuden und Strukturen jeder Art.' },
+    { icon: 'Drill', title_de: 'Entkernungsarbeiten', title_en: 'Interior Gutting', description_de: 'Vorbereitung von Renovierungen durch Entfernung nicht-tragender Elemente.' },
+    { icon: 'Zap', title_de: 'Kernbohrungen', title_en: 'Core Drilling', description_de: 'Präzisionsbohrungen in Beton und Mauerwerk.' },
+    { icon: 'Building2', title_de: 'Betonschneiden', title_en: 'Concrete Cutting', description_de: 'Exakte Schnitte in harten Baustoffen mit moderner Technik.' },
   ];
+
+  const displayServices = services.length > 0 ? services : defaultServices;
 
   return (
     <PageTransition>
@@ -20,15 +58,22 @@ const Services: React.FC = () => {
         <h1 className="text-6xl font-display font-black uppercase mb-12">
           {language === 'de' ? 'Unsere Leistungen' : 'Our Services'}
         </h1>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {services.map((s, i) => (
-            <div key={i} className="p-8 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-sm">
-              <div className="text-primary mb-6">{s.icon}</div>
-              <h3 className="text-2xl font-bold mb-4">{language === 'de' ? s.title_de : s.title_en}</h3>
-              <p className="text-zinc-600 dark:text-zinc-400">{s.desc}</p>
-            </div>
-          ))}
-        </div>
+        
+        {loading ? (
+          <div className="flex justify-center py-20">
+            <Loader2 className="animate-spin text-primary" size={48} />
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {displayServices.map((s, i) => (
+              <div key={i} className="p-8 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-sm hover:border-primary transition-colors">
+                <div className="text-primary mb-6">{iconMap[s.icon] || <Hammer size={40} />}</div>
+                <h3 className="text-2xl font-bold mb-4">{language === 'de' ? s.title_de : (s.title_en || s.title_de)}</h3>
+                <p className="text-zinc-600 dark:text-zinc-400">{language === 'de' ? s.description_de : (s.description_en || s.description_de)}</p>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </PageTransition>
   );
